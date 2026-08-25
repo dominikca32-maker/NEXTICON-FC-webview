@@ -1,0 +1,75 @@
+name: Build portable EXE
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Publish WebView host
+        run: |
+          dotnet publish src/NextIconFc.WebView/NextIconFc.WebView.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -o publish
+
+      - name: Stage wwwroot next to EXE
+        shell: pwsh
+        run: |
+          if (-not (Test-Path wwwroot/index.html)) {
+            Write-Host "wwwroot/index.html missing — building shell-only artifact."
+            New-Item -ItemType Directory -Force -Path publish/wwwroot | Out-Null
+            Set-Content -Path publish/wwwroot/README.txt -Value "Copy NEXTICON FC dist/ contents into this wwwroot folder, then restart NextIconFC.exe"
+          } else {
+            New-Item -ItemType Directory -Force -Path publish/wwwroot | Out-Null
+            Copy-Item -Path wwwroot/* -Destination publish/wwwroot -Recurse -Force
+          }
+          if (-not (Test-Path publish/NextIconFC.exe)) { throw "NextIconFC.exe missing" }
+
+      - name: Zip portable package
+        shell: pwsh
+        run: |
+          Compress-Archive -Path publish/* -DestinationPath NEXTICON-FC-portable-win-x64.zip -Force
+          Get-Item NEXTICON-FC-portable-win-x64.zip | Format-List Name, Length
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NEXTICON-FC-portable-win-x64
+          path: NEXTICON-FC-portable-win-x64.zip
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: portable-${{ github.run_number }}
+          name: Portable win-x64 #${{ github.run_number }}
+          body: |
+            Portable **NEXTICON FC** shell for Windows (Edge WebView2).
+
+            1. Unzip
+            2. Ensure `wwwroot/` contains the game `dist/` (index.html, assets, event-heroes)
+            3. Run `NextIconFC.exe`
+            4. Needs [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)
+
+            If this release only has a README in wwwroot, sync a staging `dist/` into wwwroot and re-run the workflow.
+          files: NEXTICON-FC-portable-win-x64.zip
+          generate_release_notes: false
