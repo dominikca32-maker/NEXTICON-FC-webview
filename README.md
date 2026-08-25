@@ -3,58 +3,48 @@
 Windows desktop wrapper for [NEXTICON-FC](https://github.com/dominikca32-maker/NEXTICON-FC).  
 Runs the production build inside **Microsoft Edge WebView2** — no Node, no browser tab.
 
-## Download
+Repo: https://github.com/dominikca32-maker/NEXTICON-FC-webview
 
-Open **Releases** on this repo and download `NEXTICON-FC-portable-win-x64.zip` after CI finishes.
+## Download EXE
 
-1. Unzip  
-2. Start `NextIconFC.exe`  
-3. Needs [WebView2 Evergreen Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) (normally already on Windows 10/11 with Edge)
+1. Open [Actions](https://github.com/dominikca32-maker/NEXTICON-FC-webview/actions) → latest **Build portable EXE** → artifact `NEXTICON-FC-portable-win-x64`, **or**
+2. Open [Releases](https://github.com/dominikca32-maker/NEXTICON-FC-webview/releases) and download the zip.
 
-## Layout
+Then:
 
-```
-NextIconFC.exe
-wwwroot/          ← Vite dist (index.html, assets/, event-heroes/, …)
-```
+1. Unzip
+2. Put game files into `wwwroot/` if the zip only has a README there (see below)
+3. Run `NextIconFC.exe`
+4. Needs [WebView2 Evergreen Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) (usually already on Windows 10/11 with Edge)
 
-The host maps `https://app.local` → `wwwroot/` so SPA paths work offline.
-
-## Build on Windows (recommended for first EXE)
+## Full portable in one zip (recommended on your Windows PC)
 
 ```powershell
-# Game
-git clone https://github.com/dominikca32-maker/NEXTICON-FC.git game
-cd game
+git clone https://github.com/dominikca32-maker/NEXTICON-FC-webview.git
+git clone https://github.com/dominikca32-maker/NEXTICON-FC.git
+cd NEXTICON-FC
 git checkout staging
 pnpm install --frozen-lockfile
 pnpm build
-
-# Shell
 cd ..\NEXTICON-FC-webview
-dotnet publish src\NextIconFc.WebView\NextIconFc.WebView.csproj `
-  -c Release -r win-x64 --self-contained true `
-  -p:PublishSingleFile=true -o publish
-robocopy game\dist publish\wwwroot /E
-.\publish\NextIconFC.exe
+.\scripts\pack-local.ps1 -GameDist ..\NEXTICON-FC\dist
+# → publish\NextIconFC.exe + publish\wwwroot\
 ```
 
-Or after syncing `wwwroot`: `\.\scripts\pack-local.ps1 -GameDist ..\NEXTICON-FC\dist`
+## Optional: auto-bundle game in GitHub Actions
 
-## CI
+Add a classic PAT with `repo` scope as Actions secret **`GAME_REPO_TOKEN`** on this repo (needs read access to private `NEXTICON-FC`).  
+CI will then build staging into `wwwroot` and ship a complete zip.
 
-Workflow **Build portable EXE** publishes a Release zip when `wwwroot/index.html` is present on `main`.
+## How it works
 
-To refresh the bundled game, copy a fresh `dist/` into `wwwroot/` and push.
-
-For automatic game checkout from the private NEXTICON-FC repo, add a repo secret `GAME_REPO_TOKEN` (PAT with `repo` scope) — optional workflow input below can use it later.
+Maps `https://app.local` → local `wwwroot/` via WebView2 `SetVirtualHostNameToFolderMapping`, then opens `index.html`.
 
 ## Limits
 
-- **Windows x64 only** (WebView2). Phone → PWA or laptop as LAN server.
-- Country flags (FlagCDN) need internet; Event heroes and the rest are local.
-- Optional Ranking / cloud login need backend + network.
+- Windows x64 only — phone: PWA or laptop LAN server
+- FlagCDN flags need internet; Event heroes are local once `wwwroot` is complete
 
 ## License
 
-WebView host code in this repo. Game content follows NEXTICON-FC.
+WebView host here; game content follows NEXTICON-FC.

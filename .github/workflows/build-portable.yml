@@ -12,8 +12,39 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - name: Checkout
+      - name: Checkout shell
         uses: actions/checkout@v4
+
+      - name: Checkout NEXTICON FC (optional secret)
+        if: ${{ secrets.GAME_REPO_TOKEN != '' }}
+        uses: actions/checkout@v4
+        with:
+          repository: dominikca32-maker/NEXTICON-FC
+          ref: staging
+          path: game
+          token: ${{ secrets.GAME_REPO_TOKEN }}
+
+      - name: Setup Node
+        if: ${{ secrets.GAME_REPO_TOKEN != '' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup pnpm
+        if: ${{ secrets.GAME_REPO_TOKEN != '' }}
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Build game into wwwroot
+        if: ${{ secrets.GAME_REPO_TOKEN != '' }}
+        working-directory: game
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+          Remove-Item -Recurse -Force ../wwwroot -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path ../wwwroot | Out-Null
+          Copy-Item -Path dist/* -Destination ../wwwroot -Recurse -Force
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -33,13 +64,13 @@ jobs:
       - name: Stage wwwroot next to EXE
         shell: pwsh
         run: |
-          if (-not (Test-Path wwwroot/index.html)) {
-            Write-Host "wwwroot/index.html missing — building shell-only artifact."
-            New-Item -ItemType Directory -Force -Path publish/wwwroot | Out-Null
-            Set-Content -Path publish/wwwroot/README.txt -Value "Copy NEXTICON FC dist/ contents into this wwwroot folder, then restart NextIconFC.exe"
-          } else {
-            New-Item -ItemType Directory -Force -Path publish/wwwroot | Out-Null
+          New-Item -ItemType Directory -Force -Path publish/wwwroot | Out-Null
+          if (Test-Path wwwroot/index.html) {
             Copy-Item -Path wwwroot/* -Destination publish/wwwroot -Recurse -Force
+          } else {
+            Set-Content -Path publish/wwwroot/README.txt -Value @"
+Copy NEXTICON FC dist/ contents into this wwwroot folder (index.html, assets, event-heroes), then start NextIconFC.exe.
+"@
           }
           if (-not (Test-Path publish/NextIconFC.exe)) { throw "NextIconFC.exe missing" }
 
@@ -63,13 +94,13 @@ jobs:
           tag_name: portable-${{ github.run_number }}
           name: Portable win-x64 #${{ github.run_number }}
           body: |
-            Portable **NEXTICON FC** shell for Windows (Edge WebView2).
+            Portable **NEXTICON FC** for Windows (Edge WebView2).
 
             1. Unzip
-            2. Ensure `wwwroot/` contains the game `dist/` (index.html, assets, event-heroes)
-            3. Run `NextIconFC.exe`
-            4. Needs [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)
+            2. Run `NextIconFC.exe` (needs `wwwroot/` with the game build)
+            3. [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) usually already installed with Edge
 
-            If this release only has a README in wwwroot, sync a staging `dist/` into wwwroot and re-run the workflow.
+            Full game bundle in CI requires repo secret `GAME_REPO_TOKEN` (PAT with access to private NEXTICON-FC).
+            Without it, copy a local `dist/` into `wwwroot/` after unzip, or run `scripts/pack-local.ps1` on Windows.
           files: NEXTICON-FC-portable-win-x64.zip
           generate_release_notes: false
