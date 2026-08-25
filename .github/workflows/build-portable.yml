@@ -22,13 +22,7 @@ jobs:
 
       - name: Publish WebView host
         run: |
-          dotnet publish src/NextIconFc.WebView/NextIconFc.WebView.csproj `
-            -c Release `
-            -r win-x64 `
-            --self-contained true `
-            -p:PublishSingleFile=true `
-            -p:IncludeNativeLibrariesForSelfExtract=true `
-            -o publish
+          dotnet publish src/NextIconFc.WebView/NextIconFc.WebView.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
 
       - name: Stage wwwroot next to EXE
         shell: pwsh
@@ -37,16 +31,7 @@ jobs:
           if (Test-Path wwwroot/index.html) {
             Copy-Item -Path wwwroot/* -Destination publish/wwwroot -Recurse -Force
           } else {
-            @'
-Copy a NEXTICON FC production build into this folder:
-
-  1. On a machine with Node/pnpm: build NEXTICON-FC (staging) → dist/
-  2. Copy everything from dist/ into this wwwroot/ (index.html, assets/, event-heroes/, …)
-  3. Start NextIconFC.exe again
-
-Or on Windows from a checkout:
-  .\scripts\pack-local.ps1 -GameDist ..\NEXTICON-FC\dist
-'@ | Set-Content -Path publish/wwwroot/README.txt
+            Set-Content -Path publish/wwwroot/README.txt -Value "Copy NEXTICON FC dist/ into this wwwroot folder, then start NextIconFC.exe. On Windows: .\scripts\pack-local.ps1 -GameDist ..\NEXTICON-FC\dist"
           }
           if (-not (Test-Path publish/NextIconFC.exe)) { throw "NextIconFC.exe missing" }
 
@@ -70,13 +55,13 @@ Or on Windows from a checkout:
           tag_name: portable-${{ github.run_number }}
           name: Portable win-x64 #${{ github.run_number }}
           body: |
-            Portable **NEXTICON FC** WebView2 shell for Windows.
+            Portable NEXTICON FC WebView2 shell for Windows.
 
             1. Unzip
-            2. If `wwwroot/` only has README.txt, copy a staging `dist/` into `wwwroot/`
-            3. Run `NextIconFC.exe`
-            4. Needs [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)
+            2. If wwwroot only has README.txt, copy a staging dist/ into wwwroot/
+            3. Run NextIconFC.exe
+            4. Needs WebView2 Runtime (usually installed with Edge)
 
-            One-shot pack on Windows: `\.\scripts\pack-local.ps1 -GameDist ..\NEXTICON-FC\dist`
+            One-shot on Windows: .\scripts\pack-local.ps1 -GameDist ..\NEXTICON-FC\dist
           files: NEXTICON-FC-portable-win-x64.zip
           generate_release_notes: false
